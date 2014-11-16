@@ -17,7 +17,7 @@ use Getopt::Std;
 #
 # Help and code for the program: http://github.com/jasampler/draw-tangram/
 
-my $VERSION = '1.0';
+my $VERSION = '1.1';
 
 my $PI_P4 = atan2(1, 1); #PI/4 rad (45 grad)
 my $SQRT2 = sqrt(2); #hypotenuse
@@ -222,7 +222,47 @@ sub parse_line {
 			$inc = calc_rational($1, $2, $r_err);
 			return () if ($$r_err);
 		}
-		if ($line =~ m/^\w+\s*(\[$rat,$rat(:$rat)?\]\s*\w+\s*)+;/) {
+		if ($line =~ m/^\w+(\s*-\s*\w+)+\s*\<$rat(,$rat)*\>\s*
+				\[$rat(:$rat)?(,$rat(:$rat)?)*\]\s*;/x) {
+			$line =~ s/([^\<]*)\<([^\>]*)\>\s*\[([^\]]*)\]\s*;\s*//;
+			my ($v1, $v2, $v3) = ($1, $2, $3);
+			$v1 =~ s/\s//g;
+			my @vertices = split m/-/, $v1;
+			my @angles = split m/,/, $v2;
+			my @lengths = split m/,/, $v3;
+			my $n = @vertices - 1;
+			if ($n != @angles) {
+				$$r_err = "number of angles differ from $n";
+				return ();
+			}
+			if ($n != @lengths) {
+				$$r_err = "number of lengths differ from $n";
+				return ();
+			}
+			my @edges;
+			for (my $i = 0; $i < $n; $i++) {
+				$angles[$i] =~ m/^$rat/;
+				my ($a1, $a2) = ($1, $2);
+				my $ang = calc_rational($a1, $a2, $r_err);
+				return () if ($$r_err);
+				if ($lengths[$i] !~ m/^$rat:$rat/) {
+					$lengths[$i] .= ':0';
+				}
+				$lengths[$i] =~ m/^$rat:$rat/;
+				my ($n1, $n2, $s1, $s2) = ($1, $2, $3, $4);
+				my $len = calc_rational($n1, $n2, $r_err);
+				return () if ($$r_err);
+				my $sqr = calc_rational($s1, $s2, $r_err);
+				push @edges, {
+					'ini' => $vertices[$i],
+					'end' => $vertices[$i + 1],
+					'ang' => $ang + $inc,
+					'len' => [$len, $sqr]
+				};
+			}
+			push @pieces, \@edges;
+		}
+		elsif ($line =~ m/^\w+\s*(\[$rat,$rat(:$rat)?\]\s*\w+\s*)+;/) {
 			$line =~ s/^(\w+)\s*([^;]*);\s*//;
 			my ($prev, $rest) = ($1, $2);
 			while (length($rest) > 0) {

@@ -1,7 +1,7 @@
 draw-tangram
 ============
 
-Draw Tangram figures in SVG format giving a simple description
+Draws Tangram figures in SVG format giving a simple description
 of the lines in plain text.
 
 Usage
@@ -21,7 +21,8 @@ to fill the pieces so you cannot view the lines:
 
     perl draw-tangram.pl -s FILLED figure.txt > figure.svg
 
-Run `perl draw-tangram.pl` to see all options supported by the program.
+Run `perl draw-tangram.pl` without parameters to see all options supported
+by the program.
 
 Format
 ------
@@ -31,7 +32,7 @@ separately, and to describe a piece the position of its vertices must be given.
 
 ### Lengths ###
 
-To give the position of each vertice of a piece you need to know the lengths
+To give the position of each vertice of a piece you need to know the *lengths*
 of the lines connecting these vertices, and know it for each piece of the
 Tangram:
 
@@ -67,12 +68,12 @@ Using this convention, the lengths of the sides of all Tangram's pieces are:
 * Big Triangles: side=`2`, hypotenuse=`0:2`
 * Parallelogram: small side=`1`, large side=`0:1`
 
-### Angles and lines ###
+### Angles ###
 
-To describe a line of a piece you need to give its length, but also its angle.
+To describe a line of a piece you need to give its length, but also its *angle*.
 The angle is the direction of the line, and must be written with a number that
 the program will multiply by *PI/4* radians (45 degrees). The angle `0` is the
-horizontal direction from right to left and is incremented counterclockwise.
+horizontal direction from left to right and is incremented counterclockwise.
 The basic angles to describe the lines of a piece are in the following diagram:
 
                . 2
@@ -88,17 +89,19 @@ The basic angles to describe the lines of a piece are in the following diagram:
      5 '--    \|/    --' 7
              6 '
 
-A line is described by its angle and its length separated by a comma, and then
-enclosed in square brackets, as in `[ANGLE,LENGTH]`, so the hypotenuse of
-the above medium-sized triangle must be written as `[5,2]` or `[1,2]`.
+The hypotenuse of the above medium-sized triangle can be written as `5` or `1`.
 
 ### Pieces ###
 
-To describe totally a piece, you must give a name for each vertice of the piece
-and put between the names of every two vertices the description of the line that
-connects them.  For example, the above medium-sized triangle can be written as:
+To describe totally a piece, first you must give a name for each vertice of
+the piece and put all the *names* separated by hyphens in the order that these
+vertices are connected by lines, for example `a-b-c-a`. Second, you must add
+the *angles* of these lines separated by commas in the same order and enclosed
+in angle brackets, as in `<0,5,2>`. Third, add the *lengths* of these lines 
+separated by commas in the same order and enclosed in square brackets, as in
+`[0:1,2,0:1]`. For example, the above medium-sized triangle can be written as:
 
-    a [0,0:1] b [5,2] c [2,0:1] a;
+    a-b-c-a <0,5,2> [0:1,2,0:1];
 
 And the result of passing this text to the program will be:
 
@@ -110,14 +113,16 @@ And the result of passing this text to the program will be:
     c |.'
 
 The last vertice must be equal to the first one because we are drawing a
-closed polygon. The piece description must be always ended with a semicolon.
+closed polygon, and the number of angles and lengths must be equal to the
+number of hyphens in the list of vertices. The piece description must be
+always ended with a semicolon.
 
 To describe another piece, you must begin with a vertice already used
 in a previous piece, so every new piece must be added always in a position
 relative to an existing piece. For example:
 
-    a [0,0:1] b [5,2] c [2,0:1] a;
-    b [0,0:1] d [5,1] e [4,0:1] f [1,1] b;
+    a-b-c-a <0,5,2> [0:1,2,0:1];
+    b-d-e-f-b <0,5,4,1> [0:1,1,0:1,1];
 
       .----------.---------.
     a |        .' b      .' d
@@ -135,10 +140,10 @@ begins will be a *hidden line* and will not be shown, but their vertices
 can be used to draw other pieces. For example, to add a new piece not starting
 from a previous vertice first we need to add a *hidden line* (here `a-g` line):
 
-    a [0,0:1] b [5,2] c [2,0:1] a;
-    b [0,0:1] d [5,1] e [4,0:1] f [1,1] b;
-    a [0,1] g;
-    g [1,1] h [7,1] i [4,0:1] g;
+    a-b-c-a <0,5,2> [0:1,2,0:1];
+    b-d-e-f-b <0,5,4,1> [0:1,1,0:1,1];
+    a-g <0> [1];
+    g-h-i-g <1,7,4> [1,1,0:1];
 
                    . h
                  .' '.
@@ -158,10 +163,10 @@ give a special angle to rotate all the lines of the piece. This angle must be
 before the description of the piece and enclosed between angle brackets,
 as in `<ANGLE>`, for example:
 
-    <1> a [0,0:1] b [5,2] c [2,0:1] a;
-    <1> b [0,0:1] d [5,1] e [4,0:1] f [1,1] b;
-    <1> a [0,1] g;
-    <1> g [1,1] h [7,1] i [4,0:1] g;
+    <1> a-b-c-a <0,5,2> [0:1,2,0:1];
+    <1> b-d-e-f-b <0,5,4,1> [0:1,1,0:1,1];
+    <1> a-g <0> [1];
+    <1> g-h-i-g <1,7,4> [1,1,0:1];
 
          h      i  .| d
           .------.' |
@@ -180,4 +185,7 @@ The program also supports fractional angles and lengths, using the format
 `+-NUM1/NUM2`, as in `-1/2`. Numbers with the decimal point are not permitted
 to avoid the use of inexact numbers in the specification of the figures and
 enable rational calculations and comparisons in future versions of the program.
+
+To write comments in the file or hide lines temporarily, the program ignores
+all text starting with the number sign `#` until the end of the line.
 

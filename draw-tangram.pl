@@ -48,17 +48,22 @@ my $CLASS_PIECE = 'pc';
 my $CLASS_NAME = 'nm';
 my $CLASS_BACKGROUND = 'bg';
 
+my $DEF_PC_COL = 'black';
+my $DEF_NM_COL = 'red';
+my $DEF_BG_COL = 'white';
+
 my %DEFAULT_STYLE_PIECES = ( #polygon
 	$STYLE_LINES => 'stroke-linejoin:round;' .
-		' stroke:black; stroke-width:3px; fill:none;',
+		" stroke:$DEF_PC_COL; stroke-width:3px; fill:none;",
 	$STYLE_FILLED => 'stroke-linejoin:round;' .
-		' stroke:black; stroke-width:1px; fill:black;',
+		" stroke:$DEF_PC_COL; stroke-width:1px; fill:$DEF_PC_COL;",
 	$STYLE_SEPARATED => 'stroke-linejoin:round;' .
-		' stroke:white; stroke-width:4px; fill:black;',
+		" stroke:$DEF_BG_COL; stroke-width:5px; fill:$DEF_PC_COL;",
 );
 
-my $DEFAULT_STYLE_BACKGROUND = 'fill:white;'; #rect
-my $DEFAULT_STYLE_NAMES = 'font-size:36px; fill:red;'; #text
+my $DEFAULT_STYLE_BACKGROUND = "fill:$DEF_BG_COL; stroke:$DEF_BG_COL;" .
+		' stroke-width:2px;'; #rect
+my $DEFAULT_STYLE_NAMES = "font-size:36px; fill:$DEF_NM_COL;"; #text
 
 process_input();
 
@@ -337,7 +342,7 @@ sub print_figure {
 	print "<style type=\"text/css\">", $config{'style'}, "</style>\n";
 	if ($config{'background'}) {
 		print "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
-			" width=\"$width\" height=\"$height\" />\n";
+			" width=\"100%\" height=\"100%\" />\n";
 	}
 	print_pieces($$fig{'pieces'}, \%positions);
 	if ($config{'names'}) {

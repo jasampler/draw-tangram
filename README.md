@@ -93,13 +93,14 @@ The hypotenuse of the above medium-sized triangle can be written as `5` or `1`.
 
 ### Pieces ###
 
-To describe totally a piece, first you must give a name for each vertice of
-the piece and put all the *names* separated by hyphens in the order that these
-vertices are connected by lines, for example `a-b-c-a`. Second, you must add
-the *angles* of these lines separated by commas in the same order and enclosed
-in angle brackets, as in `<0,5,2>`. Third, add the *lengths* of these lines 
-separated by commas in the same order and enclosed in square brackets, as in
-`[0:1,2,0:1]`. For example, the above medium-sized triangle can be written as:
+To describe totally a piece, first you must give a *name* for each vertice of
+the piece and write all the *names* separated by hyphens in the order that these
+vertices are connected by lines, repeating the first name at the last position,
+for example `a-b-c-a`. Second, you must write the *angles* of these lines
+separated by commas in the same order and enclosed in angle brackets,
+as in `<0,5,2>`. Third, write the *lengths* of these lines separated by commas
+in the same order and enclosed in square brackets, as in `[0:1,2,0:1]`.
+For example, the above medium-sized triangle can be written as:
 
     a-b-c-a <0,5,2> [0:1,2,0:1];
 
@@ -130,6 +131,11 @@ relative to an existing piece. For example:
       |    .'--------.'
       |  .' f         e
     c |.'
+
+An alternative extended notation using separated elements is also supported:
+
+    a <0>[0:1] b <5>[2] c <2>[0:1] a;
+    b <0>[0:1] d <5>[1] e <4>[0:1] f <1>[1] b;
 
 ### Hidden lines ###
 

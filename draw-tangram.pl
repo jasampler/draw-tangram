@@ -258,6 +258,7 @@ sub parse_line {
 				my $len = calc_rational($n1, $n2, $r_err);
 				return () if ($$r_err);
 				my $sqr = calc_rational($s1, $s2, $r_err);
+				return () if ($$r_err);
 				push @edges, {
 					'ini' => $vertices[$i],
 					'end' => $vertices[$i + 1],
@@ -267,22 +268,24 @@ sub parse_line {
 			}
 			push @pieces, \@edges;
 		}
-		elsif ($line =~ m/^\w+\s*(\[$rat,$rat(:$rat)?\]\s*\w+\s*)+;/) {
-			$line =~ s/^(\w+)\s*([^;]*);\s*//;
-			my ($prev, $rest) = ($1, $2);
-			while (length($rest) > 0) {
-				my ($a1, $a2, $n1, $n2, $s1, $s2, $end);
-				if ($rest =~ s /^\[$rat,$rat\]\s*(\w+)\s*//) {
-					($a1, $a2, $n1, $n2, $s1, $s2, $end) =
-						($1, $2, $3, $4, '0', '', $5);
-				}
-				elsif ($rest =~
-					s/^\[$rat,$rat:$rat\]\s*(\w+)\s*//) {
-					($a1, $a2, $n1, $n2, $s1, $s2, $end) =
-						($1, $2, $3, $4, $5, $6, $7);
-				}
+		elsif ($line =~ m/^\w+\s*(\<$rat\>\s*
+				\[$rat(:$rat)?\]\s*\w+\s*)+;/x &&
+					$line !~ m/^\w+\s*\<_/) {
+			$line =~ s/^(\w+)\s*//;
+			my $prev = $1;
+			while ($line !~ m/^;/) {
+				$line =~ s/^\<([^\>]*)\>\s*
+					\[([^\]]*)\]\s*(\w+)\s*//x;
+				my ($angle, $length, $end) = ($1, $2, $3);
+				$angle =~ m/^$rat/;
+				my ($a1, $a2) = ($1, $2);
 				my $ang = calc_rational($a1, $a2, $r_err);
 				return () if ($$r_err);
+				if ($length !~ m/^$rat:$rat/) {
+					$length .= ':0';
+				}
+				$length =~ m/^$rat:$rat/;
+				my ($n1, $n2, $s1, $s2) = ($1, $2, $3, $4);
 				my $len = calc_rational($n1, $n2, $r_err);
 				return () if ($$r_err);
 				my $sqr = calc_rational($s1, $s2, $r_err);
@@ -296,6 +299,7 @@ sub parse_line {
 				$prev = $end;
 			}
 			push @pieces, \@edges;
+			$line =~ s/^;\s*//;
 		}
 		else {
 			$$r_err = 'piece syntax';

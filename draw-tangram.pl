@@ -227,7 +227,7 @@ sub parse_line {
 			$inc = calc_rational($1, $2, $r_err);
 			return () if ($$r_err);
 		}
-		if ($line =~ m/^\w+(\s*-\s*\w+)+\s*\<$rat(,$rat)*\>\s*
+		if ($line =~ m/^\w+(\s*-\s*\w+)+\s*\<$rat(,_?$rat)*\>\s*
 				\[$rat(:$rat)?(,$rat(:$rat)?)*\]\s*;/x) {
 			$line =~ s/([^\<]*)\<([^\>]*)\>\s*\[([^\]]*)\]\s*;\s*//;
 			my ($v1, $v2, $v3) = ($1, $2, $3);
@@ -245,11 +245,13 @@ sub parse_line {
 				return ();
 			}
 			my @edges;
+			my $last_ang = 0;
 			for (my $i = 0; $i < $n; $i++) {
-				$angles[$i] =~ m/^$rat/;
-				my ($a1, $a2) = ($1, $2);
+				$angles[$i] =~ m/^(_?)$rat/;
+				my ($r, $a1, $a2) = ($1, $2, $3);
 				my $ang = calc_rational($a1, $a2, $r_err);
 				return () if ($$r_err);
+				$ang += $last_ang if ($r ne '');
 				if ($lengths[$i] !~ m/^$rat:$rat/) {
 					$lengths[$i] .= ':0';
 				}
@@ -265,22 +267,25 @@ sub parse_line {
 					'ang' => $ang + $inc,
 					'len' => [$len, $sqr]
 				};
+				$last_ang = $ang;
 			}
 			push @pieces, \@edges;
 		}
-		elsif ($line =~ m/^\w+\s*(\<$rat\>\s*
+		elsif ($line =~ m/^\w+\s*(\<_?$rat\>\s*
 				\[$rat(:$rat)?\]\s*\w+\s*)+;/x &&
 					$line !~ m/^\w+\s*\<_/) {
 			$line =~ s/^(\w+)\s*//;
 			my $prev = $1;
+			my $last_ang = 0;
 			while ($line !~ m/^;/) {
 				$line =~ s/^\<([^\>]*)\>\s*
 					\[([^\]]*)\]\s*(\w+)\s*//x;
 				my ($angle, $length, $end) = ($1, $2, $3);
-				$angle =~ m/^$rat/;
-				my ($a1, $a2) = ($1, $2);
+				$angle =~ m/^(_?)$rat/;
+				my ($r, $a1, $a2) = ($1, $2, $3);
 				my $ang = calc_rational($a1, $a2, $r_err);
 				return () if ($$r_err);
+				$ang += $last_ang if ($r ne '');
 				if ($length !~ m/^$rat:$rat/) {
 					$length .= ':0';
 				}
@@ -297,6 +302,7 @@ sub parse_line {
 					'len' => [$len, $sqr]
 				};
 				$prev = $end;
+				$last_ang = $ang;
 			}
 			push @pieces, \@edges;
 			$line =~ s/^;\s*//;

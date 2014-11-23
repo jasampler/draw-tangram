@@ -161,6 +161,17 @@ from a previous vertice first we need to add a *hidden line* (here `a-g` line):
       |  .' f         e
     c |.'
 
+The program also supports *relative angles* to make easier writing the pieces.
+A *relative angle* is an angle describing an increment from the previous angle,
+so the first angle of a piece cannot be relative. To write a *relative angle*
+an underscore must be inserted before the number, as in `_ANGLE`. For example,
+using relative angles the previous pieces will be:
+
+    a-b-c-a <0,_5,_5> [0:1,2,0:1];
+    b-d-e-f-b <0,_5,_7,_5> [0:1,1,0:1,1];
+    a-g <0> [1];
+    g-h-i-g <1,_6,_5> [1,1,0:1];
+
 ### Rotation ###
 
 If the angles of the lines of a piece in a Tangram figure are different than

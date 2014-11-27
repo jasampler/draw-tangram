@@ -162,15 +162,15 @@ from a previous vertice first we need to add a *hidden line* (here `a-g` line):
     c |.'
 
 The program also supports *relative angles* to make easier writing the pieces.
-A *relative angle* is an angle describing an increment from the previous angle,
-so the first angle of a piece cannot be relative. To write a *relative angle*
-an underscore must be inserted before the number, as in `_ANGLE`. For example,
-using relative angles the previous pieces will be:
+A *relative angle* is an angle describing an increment from the previous angle.
+By inserting the `@` sign before the first angle in the description of a piece
+all the angles of the piece except the first one will be considered
+*relative angles*. For example, the previous figure described with them can be:
 
-    a-b-c-a <0,_5,_5> [0:1,2,0:1];
-    b-d-e-f-b <0,_5,_7,_5> [0:1,1,0:1,1];
+    a-b-c-a <@0,5,5> [0:1,2,0:1];
+    b-d-e-f-b <@0,5,7,5> [0:1,1,0:1,1];
     a-g <0> [1];
-    g-h-i-g <1,_6,_5> [1,1,0:1];
+    g-h-i-g <@1,6,5> [1,1,0:1];
 
 ### Rotation ###
 
@@ -180,26 +180,24 @@ give a special angle to rotate all the lines of the piece. This angle must be
 before the description of the piece and enclosed between angle brackets,
 as in `<ANGLE>`, for example:
 
-    <1> a-b-c-a <0,5,2> [0:1,2,0:1];
-    <1> b-d-e-f-b <0,5,4,1> [0:1,1,0:1,1];
-    <1> a-g <0> [1];
-    <1> g-h-i-g <1,7,4> [1,1,0:1];
+    a-b-c-a <0,5,2> [0:1,2,0:1];
+    b-d-e-f-b <0,5,4,1> [0:1,1,0:1,1];
+    a-g <0> [1];
+    <1/2> g-h-i-g <1,7,4> [1,1,0:1];
 
-         h      i  .| d
-          .------.' |
-          |    .'   |
-          |  .'     | 
-        g |.'| b   .' e
-         .'  |   .'
-    a  .'    | .'
-     .'      |'
-      '.     | f
-        '.   |
-          '. |
-            '| c
+                h .
+                 / ''-.
+                /   .-'' i
+             g /.-''
+      .-------'--.---------.
+    a |        .' b      .' d
+      |      .'        .'
+      |    .'--------.'
+      |  .' f         e
+    c |.'
 
-The program also supports fractional angles and lengths, using the format
-`+-NUM1/NUM2`, as in `-1/2`. Numbers with the decimal point are not permitted
+The program supports fractional angles and lengths, using the format
+`+-NUM1/NUM2`, as in `1/2`. Numbers with the decimal point are not permitted
 to avoid the use of inexact numbers in the specification of the figures and
 enable rational calculations and comparisons in future versions of the program.
 

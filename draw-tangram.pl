@@ -17,7 +17,7 @@ use Getopt::Std;
 #
 # Help and code for the program: http://github.com/jasampler/draw-tangram/
 
-my $VERSION = '1.2';
+my $VERSION = '1.3';
 
 my $PI_P4 = atan2(1, 1); #PI/4 rad (45 grad)
 my $SQRT2 = sqrt(2); #hypotenuse
@@ -114,7 +114,7 @@ sub process_input {
 	else {
 		open($fh, "<", $file) or die "Can't open file: '$file': $!";
 	}
-	my (@pieces, @hidden_edges, $err_str);
+	my (@pieces, $err_str);
 	my $n = 0;
 	while (<$fh>) {
 		chomp;
@@ -129,17 +129,11 @@ sub process_input {
 			return;
 		}
 		for my $piece (@pieces_line) {
-			if (circular_vertices($piece)) {
-				push @pieces, $piece;
-			}
-			else {
-				push @hidden_edges, @$piece;
-			}
+			push @pieces, $piece;
 		}
 	}
 	close($fh) if ($file ne '-');
-	my %fig = ('hidden_edges'=>\@hidden_edges, 'pieces'=>\@pieces);
-	print_figure(\%fig, \%config);
+	print_figure(\@pieces, \%config);
 }
 
 sub prn {
@@ -163,7 +157,7 @@ sub print_help {
 	prn("  -s STYLE  Defines the style block of the SVG file.");
 	prn($s."STYLE can be one of the predefined styles $STYLE_LINES,");
 	prn($s."$STYLE_FILLED or $STYLE_SEPARATED, " .
-		"or can be all styles in one line.");
+		"or can be the style block in one line.");
 	prn($s."The default STYLE is $STYLE_LINES with background and names.");
 	prn("  -t FILE   Replaces the style block with the contents of");
 	prn($s."the file FILE. If the FILE contains an <style> tag, then");
@@ -329,7 +323,7 @@ sub is_false {
 }
 
 sub print_figure {
-	my ($fig, $config_param) = @_;
+	my ($pieces, $config_param) = @_;
 	my %config = %DEFAULT_CONFIG;
 	for my $key (keys %$config_param) {
 		$config{$key} = $$config_param{$key};
@@ -341,9 +335,8 @@ sub print_figure {
 	if ($config{'flip'}) {
 		$params{'flip'} = 1;
 	}
-	my %dimensions;
-	my %positions;
-	calc_positions($fig, \%params, \%positions, \%dimensions);
+	my (%dimensions, %positions);
+	calc_positions($pieces, \%params, \%positions, \%dimensions);
 	#calculate width, height, start_x and start_y from dimensions:
 	my $width =  fmt_val(($dimensions{'max_x'} - $dimensions{'min_x'} +
 			2 * $MARGIN) * $config{'multiplier'});
@@ -353,7 +346,7 @@ sub print_figure {
 	$params{'start_y'} = -$dimensions{'min_y'} + $MARGIN;
 	$params{'multiplier'} = $config{'multiplier'};
 	%positions = ();
-	calc_positions($fig, \%params, \%positions);
+	calc_positions($pieces, \%params, \%positions);
 	print '<?xml version="1.0" standalone="no"?>', "\n";
 	print '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"', "\n" .
 		" width=\"$width\" height=\"$height\">", "\n";
@@ -362,7 +355,7 @@ sub print_figure {
 		print "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
 			" width=\"100%\" height=\"100%\" />\n";
 	}
-	print_pieces($$fig{'pieces'}, \%positions);
+	print_pieces($pieces, \%positions);
 	if ($config{'names'}) {
 		my $default_div = $DEFAULT_MULTIPLIER / $DEFAULT_NAME_OFFSET;
 		print_names(\%positions, $params{'multiplier'} / $default_div);
@@ -391,21 +384,15 @@ sub print_names {
 
 sub print_pieces {
 	my ($pieces, $positions) = @_;
-	for (my $p = 0; $p < @$pieces; $p++) {
-		my $piece = $$pieces[$p];
-		my @piece_edges;
-		for (my $e = 0; $e < @$piece; $e++) {
-			my $edge = $$piece[$e];
-			push @piece_edges, $edge;
+	for my $piece (@$pieces) {
+		if (circular_vertices($piece)) {
+			print_piece($piece, $positions);
 		}
-		print_piece(\@piece_edges, $positions);
 	}
 }
 
 sub calc_positions {
-	my ($fig, $params, $positions, $dimensions) = @_;
-	my $hidden_edges = $$fig{'hidden_edges'};
-	my $pieces = $$fig{'pieces'};
+	my ($pieces, $params, $positions, $dimensions) = @_;
 	for (my $p = 0; $p < @$pieces; $p++) {
 		my $piece = $$pieces[$p];
 		for (my $e = 0; $e < @$piece; $e++) {
@@ -417,8 +404,7 @@ sub calc_positions {
 					'y'=>$mult * $$params{'start_y'},
 				};
 			}
-			if (calc_edge_positions($edge, $hidden_edges,
-					$params, $positions)) {
+			if (calc_edge_positions($edge, $params, $positions)) {
 				if (defined($dimensions)) {
 					my $pos = $$positions{$$edge{'ini'}};
 					update_dimensions($pos, $dimensions);
@@ -457,73 +443,57 @@ sub print_piece {
 	my ($piece_edges, $positions) = @_;
 	if (@$piece_edges == 0) { return; }
 	my @verts;
-	for (my $e = 0; $e < @$piece_edges; $e++) {
-		my $edge = $$piece_edges[$e];
+	for my $edge (@$piece_edges) {
 		my $ini = $$edge{'ini'};
 		my $end = $$edge{'end'};
 		if (@verts == 0) {
-			push @verts, $ini, $end;
+			push @verts, $ini;
 		}
-		elsif ($ini eq $verts[@verts - 1]) { push @verts, $end; }
-		elsif ($end eq $verts[@verts - 1]) { push @verts, $ini; }
-		elsif ($ini eq $verts[0]) { unshift @verts, $end; }
-		elsif ($end eq $verts[0]) { unshift @verts, $ini; }
-		else {
-			print STDERR "unimplemented: unchained edge " .
-					"$ini-$end\n";
-		}
+		push @verts, $end;
 	}
 	my $points = '';
 	for (my $v = 1; $v < @verts; $v++) {
 		my $pos = $$positions{$verts[$v]};
 		$points .= ' ' if ($v > 1);
-		$points .= fmt_val($$pos{'x'}) . ',' . fmt_val($$pos{'y'});
+		$points .= fmt_pos($pos);
 	}
 	print "<polygon class=\"$CLASS_PIECE\" points=\"$points\" />\n";
 }
 
 sub fmt_val {
-	return sprintf('%.' . $DECIMALS . 'f', shift);
-}
-
-sub find_vert {
-	my ($hidden_edges, $positions, $params) = @_;
-	if (!defined $hidden_edges) { return; }
-	for (my $e = 0; $e < @$hidden_edges; $e++) {
-		my $edge = $$hidden_edges[$e];
-		my $ini = $$edge{'ini'};
-		my $end = $$edge{'end'};
-		if (exists($$positions{$ini}) && !exists($$positions{$end})) {
-			$$positions{$end} = get_vert_pos($edge,
-					$$positions{$ini}, $params);
-		}
-		elsif (exists($$positions{$end}) && !exists($$positions{$ini})){
-			$$positions{$ini} = get_vert_pos($edge,
-					$$positions{$end}, $params, 'REVERSE');
-		}
+	my $val = sprintf('%.' . $DECIMALS . 'f', shift);
+	if ($val =~ m/^-0\.0+$/) {
+		$val = substr($val, 1);
 	}
+	return $val;
 }
 
 sub calc_edge_positions {
-	my ($edge, $hidden_edges, $params, $positions) = @_;
+	my ($edge, $params, $positions) = @_;
 	my $ini = $$edge{'ini'};
 	my $end = $$edge{'end'};
-	if ((!exists($$positions{$ini})) && (!exists($$positions{$end}))) {
-		find_vert($hidden_edges, $positions, $params);
-	}
-	if ((!exists($$positions{$ini})) && (!exists($$positions{$end}))) {
+	if (!exists $$positions{$ini}) {
 		print STDERR "ERROR: unable to make edge $ini-$end\n";
 		return 0;
 	}
-	if (!exists($$positions{$end})) {
-		$$positions{$end} = get_vert_pos($edge, $$positions{$ini},
-						$params);
+	my $pos = get_vert_pos($edge, $$positions{$ini}, $params);
+	if (!exists $$positions{$end}) {
+		$$positions{$end} = $pos;
 	}
-	elsif (!exists($$positions{$ini})) {
-		$$positions{$ini} = get_vert_pos($edge, $$positions{$end},
-						$params, 'REVERSE');
+	else {
+		my $oldpos = fmt_pos($$positions{$end});
+		my $newpos = fmt_pos($pos);
+		if ($oldpos ne $newpos) {
+			print STDERR "WARNING: $end position $newpos " .
+				"in $ini-$end differs than previous $oldpos\n";
+		}
 	}
 	return 1;
+}
+
+sub fmt_pos {
+	my $pos = shift;
+	return fmt_val($$pos{'x'}) . ',' . fmt_val($$pos{'y'});
 }
 
 sub get_length {
@@ -532,7 +502,7 @@ sub get_length {
 }
 
 sub get_vert_pos {
-	my ($edge, $ini_pos, $params, $reverse) = @_;
+	my ($edge, $ini_pos, $params) = @_;
 	my $ang = $$edge{'ang'} + $$params{'inc_ang'};
 	if ($$params{'flip'}) {
 		$ang = -$ang + 4; #horizontal flip
@@ -541,9 +511,6 @@ sub get_vert_pos {
 	my $dx = cos($ang);
 	my $dy = sin($ang);
 	my $total_len = $$params{'multiplier'} * get_length($$edge{'len'});
-	if (defined $reverse) {
-		$total_len = -$total_len;
-	}
 	return {
 		'x'=>$$ini_pos{'x'} + $dx * $total_len,
 		'y'=>$$ini_pos{'y'} + $dy * $total_len,

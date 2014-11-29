@@ -17,7 +17,7 @@ use Getopt::Std;
 #
 # Help and code for the program: http://github.com/jasampler/draw-tangram/
 
-my $VERSION = '1.1';
+my $VERSION = '1.2';
 
 my $PI_P4 = atan2(1, 1); #PI/4 rad (45 grad)
 my $SQRT2 = sqrt(2); #hypotenuse

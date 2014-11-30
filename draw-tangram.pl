@@ -74,7 +74,13 @@ sub process_input {
 		print_help();
 		return;
 	}
+	my $config = process_config(%args);
 	my $file = shift @ARGV;
+	process_file($file, $config);
+}
+
+sub process_config {
+	my %args = @_;
 	my %config;
 	if (exists $args{'f'}) {
 		$config{'flip'} = !is_false(lc($args{'f'}));
@@ -107,6 +113,11 @@ sub process_input {
 	if (exists $args{'n'}) {
 		$config{'names'} = !is_false(lc($args{'n'}));
 	}
+	return \%config;
+}
+
+sub process_file {
+	my ($file, $config) = @_;
 	my $fh;
 	if ($file eq '-') {
 		$fh = *STDIN;
@@ -133,7 +144,7 @@ sub process_input {
 		}
 	}
 	close($fh) if ($file ne '-');
-	print_figure(\@pieces, \%config);
+	print gen_figure_svg(\@pieces, $config);
 }
 
 sub prn {
@@ -322,7 +333,7 @@ sub is_false {
 	return (!defined($val)) || (!$val) || $val eq 'false' || $val eq 'no';
 }
 
-sub print_figure {
+sub gen_figure_svg {
 	my ($pieces, $config_param) = @_;
 	my %config = %DEFAULT_CONFIG;
 	for my $key (keys %$config_param) {
@@ -347,20 +358,21 @@ sub print_figure {
 	$params{'multiplier'} = $config{'multiplier'};
 	%positions = ();
 	calc_positions($pieces, \%params, \%positions);
-	print '<?xml version="1.0" standalone="no"?>', "\n";
-	print '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"', "\n" .
-		" width=\"$width\" height=\"$height\">", "\n";
-	print "<style type=\"text/css\">", $config{'style'}, "</style>\n";
+	my $svg = '<?xml version="1.0" standalone="no"?>' . "\n";
+	$svg .= '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"' . "\n" .
+		" width=\"$width\" height=\"$height\">" . "\n";
+	$svg .= "<style type=\"text/css\">" . $config{'style'} . "</style>\n";
 	if ($config{'background'}) {
-		print "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
+		$svg .= "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
 			" width=\"100%\" height=\"100%\" />\n";
 	}
-	print_pieces($pieces, \%positions);
+	$svg .= gen_pieces_svg($pieces, \%positions);
 	if ($config{'names'}) {
 		my $default_div = $DEFAULT_MULTIPLIER / $DEFAULT_NAME_OFFSET;
-		print_names(\%positions, $params{'multiplier'} / $default_div);
+		$svg .= gen_names_svg(\%positions,
+				$params{'multiplier'} / $default_div);
 	}
-	print "</svg>\n";
+	$svg .= "</svg>\n";
 }
 
 sub compose_style {
@@ -371,24 +383,28 @@ sub compose_style {
 	return $style;
 }
 
-sub print_names {
+sub gen_names_svg {
 	my ($positions, $offset) = @_;
+	my $svg = '';
 	for my $name (sort(keys %$positions)) {
 		my $pos = $$positions{$name};
 		my $pos_x = fmt_val($$pos{'x'} + $offset);
 		my $pos_y = fmt_val($$pos{'y'} - $offset);
-		print "<text class=\"$CLASS_NAME\"" .
+		$svg .= "<text class=\"$CLASS_NAME\"" .
 			" x=\"$pos_x\" y=\"$pos_y\">$name</text>\n";
 	}
+	return $svg;
 }
 
-sub print_pieces {
+sub gen_pieces_svg {
 	my ($pieces, $positions) = @_;
+	my $svg = '';
 	for my $piece (@$pieces) {
 		if (circular_vertices($piece)) {
-			print_piece($piece, $positions);
+			$svg .= gen_piece_svg($piece, $positions);
 		}
 	}
+	return $svg;
 }
 
 sub calc_positions {
@@ -439,7 +455,7 @@ sub update_dimensions {
 	}
 }
 
-sub print_piece {
+sub gen_piece_svg {
 	my ($piece_edges, $positions) = @_;
 	if (@$piece_edges == 0) { return; }
 	my @verts;
@@ -457,7 +473,7 @@ sub print_piece {
 		$points .= ' ' if ($v > 1);
 		$points .= fmt_pos($pos);
 	}
-	print "<polygon class=\"$CLASS_PIECE\" points=\"$points\" />\n";
+	return "<polygon class=\"$CLASS_PIECE\" points=\"$points\" />\n";
 }
 
 sub fmt_val {

@@ -147,35 +147,33 @@ sub process_file {
 	print gen_figure_svg(\@pieces, $config);
 }
 
-sub prn {
-	print STDERR $_[0], "\n";
-}
-
 sub print_help {
-	my $s = "            ";
-	prn("Usage: $0 [OPTION] [TEXT_FILE]");
-	prn("");
-	prn("Reads a TEXT_FILE describing a Tangram figure and");
-	prn("generates its graphical representation in SVG format.");
-	prn("Additional help in: http://github.com/jasampler/draw-tangram/");
-	prn("");
-	prn("  -b YESNO  Adds or removes the background.");
-	prn("  -n YESNO  Adds or removes the names of the vertices.");
-	prn($s."YESNO can be YES or NO to enable or disable the feature.");
-	prn("  -f YESNO  If YES, flips the figure horizontally.");
-	prn("  -r ANGLE  Rotates the figure by an ANGLE.");
-	prn($s."The ANGLE must be a number that will be multiplied by PI/4.");
-	prn("  -s STYLE  Defines the style block of the SVG file.");
-	prn($s."STYLE can be one of the predefined styles $STYLE_LINES,");
-	prn($s."$STYLE_FILLED or $STYLE_SEPARATED, " .
-		"or can be the style block in one line.");
-	prn($s."The default STYLE is $STYLE_LINES with background and names.");
-	prn("  -t FILE   Replaces the style block with the contents of");
-	prn($s."the file FILE. If the FILE contains an <style> tag, then");
-	prn($s."it will only put that block, to get it from other SVG.");
-	prn("  -m VALUE  Sets the multiplier of the unit of length.");
-	prn($s."By default is 100 and predefined styles are chosen for it,");
-	prn($s."so the style should be changed when setting this value.");
+	my $SEPARATED = $STYLE_SEPARATED;
+	my $MULTIPLIER = $DEFAULT_MULTIPLIER;
+	print STDERR <<"EOF";
+Usage: $0 [OPTION] [TEXT_FILE ...]
+
+Reads a TEXT_FILE describing a Tangram figure and
+generates its graphical representation in SVG format.
+Additional help in: http://github.com/jasampler/draw-tangram/
+
+  -b YESNO  Adds or removes the background.
+  -n YESNO  Adds or removes the names of the vertices.
+            YESNO can be YES or NO to enable or disable the feature.
+  -f YESNO  If YES, flips the figure horizontally.
+  -r ANGLE  Rotates the figure by an ANGLE.
+            The ANGLE must be a number that will be multiplied by PI/4.
+  -s STYLE  Defines the style block of the SVG file.
+            STYLE can be one of the predefined styles $STYLE_LINES,
+            $STYLE_FILLED or $SEPARATED, or can be the style block in one line.
+            The default STYLE is $STYLE_LINES with background and names.
+  -t FILE   Replaces the style block with the contents of
+            the file FILE. If the FILE contains an <style> tag, then
+            it will only put that block, to get it from other SVG.
+  -m VALUE  Sets the multiplier of the unit of length.
+            By default is $MULTIPLIER and predefined styles are chosen for it,
+            so the style should be changed when setting this value.
+EOF
 }
 
 sub read_style_file {

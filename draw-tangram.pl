@@ -19,7 +19,7 @@ use Getopt::Std;
 
 my $VERSION = '1.3';
 
-my $PI_P4 = atan2(1, 1); #PI/4 rad (45 grad)
+my $PI_P4 = atan2(1, 1); #PI/4 rad (45 deg)
 my $SQRT2 = sqrt(2); #hypotenuse
 my $DECIMALS = 3;
 my $MARGIN = 0.5;
@@ -69,8 +69,8 @@ process_input();
 
 sub process_input {
 	my %args;
-	getopt('bnfrstm', \%args);
-	if (@ARGV == 0) {
+	my $ok = getopts('b:n:f:r:s:m:', \%args);
+	if (!$ok || @ARGV == 0) {
 		print_help();
 		return;
 	}
@@ -94,16 +94,14 @@ sub process_config {
 	if (exists $args{'s'}) {
 		my $style = $args{'s'};
 		if (exists $DEFAULT_STYLE_PIECES{$style}) {
-			$style = compose_style($style);
+			$config{'style'} = compose_style($style);
 		}
-		$config{'style'} =  "\n" . $style . "\n";
+		else {
+			$config{'style'} = read_style_file($style);
+		}
 	}
-	elsif (exists $args{'t'}) {
-		$config{'style'} = read_style_file($args{'t'});
-	}
-	if (!exists $config{'style'}) { #default style:
-		my $style = compose_style($STYLE_LINES);
-		$config{'style'} =  "\n" . $style . "\n";
+	else { #default style:
+		$config{'style'} = compose_style($STYLE_LINES);
 		$config{'background'} = 1;
 		$config{'names'} = 1;
 	}
@@ -161,15 +159,13 @@ Additional help in: http://github.com/jasampler/draw-tangram/
   -n YESNO  Adds or removes the names of the vertices.
             YESNO can be YES or NO to enable or disable the feature.
   -f YESNO  If YES, flips the figure horizontally.
-  -r ANGLE  Rotates the figure by an ANGLE.
-            The ANGLE must be a number that will be multiplied by PI/4.
-  -s STYLE  Defines the style block of the SVG file.
-            STYLE can be one of the predefined styles $STYLE_LINES,
-            $STYLE_FILLED or $SEPARATED, or can be the style block in one line.
+  -r ANGLE  Rotates the figure by an ANGLE. The ANGLE must be a number
+            that will be multiplied by PI/4 radians (45 degrees).
+  -s STYLE  Defines the style block of the SVG file. STYLE can be one
+            of the predefined styles $STYLE_LINES, $STYLE_FILLED or $SEPARATED,
+            or a FILE containing the style code. If the FILE contains a
+            <style> tag, like in other SVG, only this block will be used.
             The default STYLE is $STYLE_LINES with background and names.
-  -t FILE   Replaces the style block with the contents of
-            the file FILE. If the FILE contains an <style> tag, then
-            it will only put that block, to get it from other SVG.
   -m VALUE  Sets the multiplier of the unit of length.
             By default is $MULTIPLIER and predefined styles are chosen for it,
             so the style should be changed when setting this value.
@@ -375,10 +371,9 @@ sub gen_figure_svg {
 
 sub compose_style {
 	my $type = shift;
-	my $style =  ".$CLASS_PIECE {$DEFAULT_STYLE_PIECES{$type}}";
-	$style .= " .$CLASS_NAME {$DEFAULT_STYLE_NAMES}";
-	$style .= " .$CLASS_BACKGROUND {$DEFAULT_STYLE_BACKGROUND}";
-	return $style;
+	return "\n.$CLASS_PIECE {$DEFAULT_STYLE_PIECES{$type}}" .
+		" .$CLASS_NAME {$DEFAULT_STYLE_NAMES}" .
+		" .$CLASS_BACKGROUND {$DEFAULT_STYLE_BACKGROUND}\n";
 }
 
 sub gen_names_svg {

@@ -75,8 +75,9 @@ sub process_input {
 		return;
 	}
 	my $config = process_config(%args);
-	my $file = shift @ARGV;
-	process_file($file, $config);
+	for my $file (@ARGV) {
+		process_file($file, $config);
+	}
 }
 
 sub process_config {
@@ -121,7 +122,14 @@ sub process_file {
 		$fh = *STDIN;
 	}
 	else {
-		open($fh, "<", $file) or die "Can't open file: '$file': $!";
+		if ($file =~ m/\.svg$/i) {
+			print STDERR "error: SVG input file: '$file'\n";
+			return;
+		}
+		unless (open($fh, "<", $file)) {
+			print STDERR "error: Can't open file: '$file': $!";
+			return;
+		}
 	}
 	my (@pieces, $err_str);
 	my $n = 0;
@@ -142,17 +150,31 @@ sub process_file {
 		}
 	}
 	close($fh) if ($file ne '-');
-	print gen_figure_svg(\@pieces, $config);
+	my $ofile = $file;
+	if ($ofile eq '-') {
+		$fh = *STDOUT;
+	}
+	else {
+		if ($ofile !~ s/\.\w+$/.svg/) {
+			$ofile .= '.svg';
+		}
+		unless (open($fh, ">", $ofile)) {
+			print STDERR "error: Can't write file: '$ofile': $!";
+			return;
+		}
+	}
+	print $fh gen_figure_svg(\@pieces, $config);
+	close($fh) if ($ofile ne '-');
 }
 
 sub print_help {
 	my $SEPARATED = $STYLE_SEPARATED;
 	my $MULTIPLIER = $DEFAULT_MULTIPLIER;
 	print STDERR <<"EOF";
-Usage: $0 [OPTION] [TEXT_FILE ...]
+Usage: $0 [OPTIONS] TEXT_FILE ...
 
-Reads a TEXT_FILE describing a Tangram figure and
-generates its graphical representation in SVG format.
+Reads a TEXT_FILE with instructions to draw a Tangram figure
+and generates its graphical representation in SVG format.
 Additional help in: http://github.com/jasampler/draw-tangram/
 
   -b YESNO  Adds or removes the background.

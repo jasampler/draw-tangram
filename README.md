@@ -11,15 +11,16 @@ To run this program you need `perl` installed. Then you must create a text
 file in the format explained below to describe a Tangram figure, and then run
 the program from the command-line console, for example:
 
-    perl draw-tangram.pl figure.txt > figure.svg
+    perl draw-tangram.pl figure.txt
 
+This creates a new file with the same name but having the .svg extension.
 To see the resulting image you can drag and drop the SVG file in any modern web
 browser or open it with any other application capable of view or edit SVG files.
 
 The program can generate other views of the same figure, for example
 to fill the pieces so you cannot view the lines:
 
-    perl draw-tangram.pl -s FILLED figure.txt > figure.svg
+    perl draw-tangram.pl -s FILLED figure.txt
 
 Run `perl draw-tangram.pl` without parameters to see all options supported
 by the program.

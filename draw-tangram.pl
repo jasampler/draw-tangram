@@ -17,7 +17,7 @@ use Getopt::Std;
 #
 # Help and code for the program: http://github.com/jasampler/draw-tangram/
 
-my $VERSION = '1.4';
+my $VERSION = '1.5';
 
 my $PI_P4 = atan2(1, 1); #PI/4 rad (45 deg)
 my $SQRT2 = sqrt(2); #hypotenuse
@@ -30,15 +30,8 @@ my $STYLE_LINES = 'LINES';
 my $STYLE_FILLED = 'FILLED';
 my $STYLE_SEPARATED = 'SEPARATED';
 
-my %DEFAULT_PARAMS = (
-	'inc_ang'    => 0,
-	'multiplier' => 1,
-	'start_x'    => 0,
-	'start_y'    => 0,
-	'flip'       => 0,
-);
-
 my %DEFAULT_CONFIG = (
+	'inc_ang'    => calc_rational('0', ''),
 	'multiplier' => $DEFAULT_MULTIPLIER,
 	'background' => 1,
 	'names'      => 0,
@@ -65,6 +58,8 @@ my $DEFAULT_STYLE_BACKGROUND = "fill:$DEF_BG_COL; stroke:$DEF_BG_COL;" .
 		' stroke-width:2px;'; #rect
 my $DEFAULT_STYLE_NAMES = "font-size:36px; fill:$DEF_NM_COL;"; #text
 
+my $RATIONAL_MASK = qr/\s*(-?[0-9]+)\/?([0-9]*)\s*/;
+
 process_input();
 
 sub process_input {
@@ -80,17 +75,38 @@ sub process_input {
 	}
 }
 
+sub print_err {
+	print STDERR "error: " . $_[0] . "\n";
+}
+
 sub process_config {
 	my %args = @_;
-	my %config;
+	my %config = %DEFAULT_CONFIG;
 	if (exists $args{'f'}) {
 		$config{'flip'} = !is_false(lc($args{'f'}));
 	}
 	if (exists $args{'r'}) {
-		$config{'inc_ang'} = +$args{'r'};
+		if ($args{'r'} =~ m/^$RATIONAL_MASK$/) {
+			my $err_str = '';
+			my $inc_ang = calc_rational($1, $2, \$err_str);
+			if ($err_str) {
+				print_err("not valid: $args{'r'}: $err_str");
+			}
+			else {
+				$config{'inc_ang'} = $inc_ang;
+			}
+		}
+		else {
+			print_err("angle not in the format N/D: $args{'r'}");
+		}
 	}
 	if (exists $args{'m'}) {
-		$config{'multiplier'} = +$args{'m'};
+		if ($args{'m'} =~ m/^\d+$/) {
+			$config{'multiplier'} = int($args{'m'});
+		}
+		else {
+			print_err("multiplier not an integer: $args{'m'}");
+		}
 	}
 	if (exists $args{'s'}) {
 		my $style = $args{'s'};
@@ -123,11 +139,11 @@ sub process_file {
 	}
 	else {
 		if ($file =~ m/\.svg$/i) {
-			print STDERR "error: SVG input file: '$file'\n";
+			print_err("SVG input file: '$file'");
 			return;
 		}
 		unless (open($fh, "<", $file)) {
-			print STDERR "error: Can't open file: '$file': $!";
+			print_err("Can't open file: '$file': $!");
 			return;
 		}
 	}
@@ -142,7 +158,7 @@ sub process_file {
 		my @pieces_line = parse_line($line, \$err_str);
 		if ($err_str) {
 			close($fh) if ($file ne '-');
-			print STDERR "error: line $n: $err_str: $orig_line\n";
+			print_err("$file: line $n: $err_str: $orig_line");
 			return;
 		}
 		for my $piece (@pieces_line) {
@@ -159,7 +175,7 @@ sub process_file {
 			$ofile .= '.svg';
 		}
 		unless (open($fh, ">", $ofile)) {
-			print STDERR "error: Can't write file: '$ofile': $!";
+			print_err("Can't write file: '$ofile': $!");
 			return;
 		}
 	}
@@ -181,8 +197,8 @@ Additional help in: http://github.com/jasampler/draw-tangram/
   -n YESNO  Adds or removes the names of the vertices.
             YESNO can be YES or NO to enable or disable the feature.
   -f YESNO  If YES, flips the figure horizontally.
-  -r ANGLE  Rotates the figure by an ANGLE. The ANGLE must be a number
-            that will be multiplied by PI/4 radians (45 degrees).
+  -r ANGLE  Rotates the figure by an ANGLE. The ANGLE must be a number or
+            fraction that will be multiplied by PI/4 radians (45 degrees).
   -s STYLE  Defines the style block of the SVG file. STYLE can be one
             of the predefined styles $STYLE_LINES, $STYLE_FILLED or $SEPARATED,
             or a FILE containing the style code. If the FILE contains a
@@ -222,30 +238,54 @@ sub circular_vertices {
 
 sub calc_rational {
 	my ($num, $den, $r_err) = @_;
-	$num = +$num;
 	if ($den ne '') { #denominator can be empty
-		$den = +$den;
-		if ($den == 0) {
+		if (+$den == 0) {
 			$$r_err = 'division by zero';
-		}
-		else {
-			$num /= $den;
+			return {};
 		}
 	}
-	return $num;
+	else {
+		$den = 1;
+	}
+	return {'num' => +$num, 'den' => +$den};
+}
+
+sub rational_to_num {
+	my $rat = shift;
+	return $$rat{'num'} / $$rat{'den'};
+}
+
+sub rational_to_str {
+	my $rat = shift;
+	return $$rat{'num'} . '/' . $$rat{'den'};
+}
+
+sub sum_rationals {
+	my ($r1, $r2) = @_;
+	my ($num, $den);
+	if ($$r1{'den'} == $$r2{'den'}) {
+		$num = $$r1{'num'} + $$r2{'num'};
+		$den = $$r1{'den'};
+	}
+	else {
+		$num = $$r1{'num'} * $$r2{'den'} + $$r2{'num'} * $$r1{'den'};
+		$den = $$r1{'den'} * $$r2{'den'};
+	}
+	return {'num' => $num, 'den' => $den};
 }
 
 sub parse_line {
 	my ($line, $r_err) = @_;
 	$$r_err = '';
 	my @pieces;
+	my $rat = $RATIONAL_MASK;
 	while (length($line) > 0) {
 		last if ($line =~ m/^\#/);
 		my @edges;
-		my $inc = 0;
-		my $rat = qr/\s*([-+]?[0-9]+)\/?([0-9]*)\s*/;
+		my $piece_angle = calc_rational('0', '');
+		my $relative = 0;
 		if ($line =~ s/^\<$rat\>\s*//) {
-			$inc = calc_rational($1, $2, $r_err);
+			$piece_angle = calc_rational($1, $2, $r_err);
 			return () if ($$r_err);
 		}
 		if ($line =~ m/^\w+(\s*-\s*\w+)+\s*\<\s*\@?$rat(,$rat)*\>\s*
@@ -265,18 +305,18 @@ sub parse_line {
 				$$r_err = "number of lengths differ from $n";
 				return ();
 			}
-			my $relative = 0;
 			if ($angles[0] =~ s/^\s*\@//) {
 				$relative = 1;
 			}
-			my @edges;
-			my $last_ang = 0;
+			my $last_ang = calc_rational('0', '');
 			for (my $i = 0; $i < $n; $i++) {
 				$angles[$i] =~ m/^$rat/;
 				my ($a1, $a2) = ($1, $2);
 				my $ang = calc_rational($a1, $a2, $r_err);
 				return () if ($$r_err);
-				$ang += $last_ang if ($relative);
+				if ($relative) {
+					$ang = sum_rationals($ang, $last_ang);
+				}
 				if ($lengths[$i] !~ m/^$rat:$rat/) {
 					$lengths[$i] .= ':0';
 				}
@@ -289,23 +329,21 @@ sub parse_line {
 				push @edges, {
 					'ini' => $vertices[$i],
 					'end' => $vertices[$i + 1],
-					'ang' => $ang + $inc,
+					'ang' => $ang,
 					'len' => [$len, $sqr]
 				};
 				$last_ang = $ang;
 			}
-			push @pieces, \@edges;
 		}
 		elsif ($line =~ m/^\w+\s*\<\s*\@?$rat\>\s*
 				\[$rat(:$rat)?\]\s*\w+\s*
 				(\<$rat\>\s*\[$rat(:$rat)?\]\s*\w+\s*)*;/x) {
 			$line =~ s/^(\w+)\s*//;
 			my $prev = $1;
-			my $relative = 0;
 			if ($line =~ s/^\<\s*\@/\</) {
 				$relative = 1;
 			}
-			my $last_ang = 0;
+			my $last_ang = calc_rational('0', '');
 			while ($line !~ m/^;/) {
 				$line =~ s/^\<([^\>]*)\>\s*
 					\[([^\]]*)\]\s*(\w+)\s*//x;
@@ -314,7 +352,9 @@ sub parse_line {
 				my ($a1, $a2) = ($1, $2);
 				my $ang = calc_rational($a1, $a2, $r_err);
 				return () if ($$r_err);
-				$ang += $last_ang if ($relative);
+				if ($relative) {
+					$ang = sum_rationals($ang, $last_ang);
+				}
 				if ($length !~ m/^$rat:$rat/) {
 					$length .= ':0';
 				}
@@ -327,19 +367,22 @@ sub parse_line {
 				push @edges, {
 					'ini' => $prev,
 					'end' => $end,
-					'ang' => $ang + $inc,
+					'ang' => $ang,
 					'len' => [$len, $sqr]
 				};
 				$prev = $end;
 				$last_ang = $ang;
 			}
-			push @pieces, \@edges;
 			$line =~ s/^;\s*//;
 		}
 		else {
 			$$r_err = 'piece syntax';
 			return ();
 		}
+		push @pieces, {
+			'piece_angle' => $piece_angle,
+			'edges' => \@edges
+		};
 	}
 	return @pieces;
 }
@@ -350,43 +393,28 @@ sub is_false {
 }
 
 sub gen_figure_svg {
-	my ($pieces, $config_param) = @_;
-	my %config = %DEFAULT_CONFIG;
-	for my $key (keys %$config_param) {
-		$config{$key} = $$config_param{$key};
-	}
-	my %params = %DEFAULT_PARAMS;
-	if (exists $config{'inc_ang'}) {
-		$params{'inc_ang'} = $config{'inc_ang'};
-	}
-	if ($config{'flip'}) {
-		$params{'flip'} = 1;
-	}
+	my ($pieces, $params) = @_;
 	my (%dimensions, %positions);
-	calc_positions($pieces, \%params, \%positions, \%dimensions);
+	calc_positions($pieces, $$params{'inc_ang'}, $$params{'flip'},
+			\%positions, \%dimensions);
 	#calculate width, height, start_x and start_y from dimensions:
 	my $width =  fmt_val(($dimensions{'max_x'} - $dimensions{'min_x'} +
-			2 * $MARGIN) * $config{'multiplier'});
+			2 * $MARGIN) * $$params{'multiplier'});
 	my $height = fmt_val(($dimensions{'max_y'} - $dimensions{'min_y'} +
-			2 * $MARGIN) * $config{'multiplier'});
-	$params{'start_x'} = -$dimensions{'min_x'} + $MARGIN;
-	$params{'start_y'} = -$dimensions{'min_y'} + $MARGIN;
-	$params{'multiplier'} = $config{'multiplier'};
-	%positions = ();
-	calc_positions($pieces, \%params, \%positions);
+			2 * $MARGIN) * $$params{'multiplier'});
+	$$params{'start_x'} = -$dimensions{'min_x'} + $MARGIN;
+	$$params{'start_y'} = -$dimensions{'min_y'} + $MARGIN;
 	my $svg = '<?xml version="1.0" standalone="no"?>' . "\n";
 	$svg .= '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"' . "\n" .
 		" width=\"$width\" height=\"$height\">" . "\n";
-	$svg .= "<style type=\"text/css\">" . $config{'style'} . "</style>\n";
-	if ($config{'background'}) {
+	$svg .= "<style type=\"text/css\">" . $$params{'style'} . "</style>\n";
+	if ($$params{'background'}) {
 		$svg .= "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
 			" width=\"100%\" height=\"100%\" />\n";
 	}
-	$svg .= gen_pieces_svg($pieces, \%positions);
-	if ($config{'names'}) {
-		my $default_div = $DEFAULT_MULTIPLIER / $DEFAULT_NAME_OFFSET;
-		$svg .= gen_names_svg(\%positions,
-				$params{'multiplier'} / $default_div);
+	$svg .= gen_pieces_svg($pieces, \%positions, $params);
+	if ($$params{'names'}) {
+		$svg .= gen_names_svg(\%positions, $params);
 	}
 	$svg .= "</svg>\n";
 }
@@ -399,12 +427,15 @@ sub compose_style {
 }
 
 sub gen_names_svg {
-	my ($positions, $offset) = @_;
+	my ($positions, $params) = @_;
+	my $offset = $DEFAULT_NAME_OFFSET / $DEFAULT_MULTIPLIER;
 	my $svg = '';
 	for my $name (sort(keys %$positions)) {
 		my $pos = $$positions{$name};
-		my $pos_x = fmt_val($$pos{'x'} + $offset);
-		my $pos_y = fmt_val($$pos{'y'} - $offset);
+		my $pos_x = fmt_val($$params{'multiplier'} *
+			($$params{'start_x'} + $$pos{'x'} + $offset));
+		my $pos_y = fmt_val($$params{'multiplier'} *
+			($$params{'start_y'} + $$pos{'y'} - $offset));
 		$svg .= "<text class=\"$CLASS_NAME\"" .
 			" x=\"$pos_x\" y=\"$pos_y\">$name</text>\n";
 	}
@@ -412,36 +443,37 @@ sub gen_names_svg {
 }
 
 sub gen_pieces_svg {
-	my ($pieces, $positions) = @_;
+	my ($pieces, $positions, $params) = @_;
 	my $svg = '';
 	for my $piece (@$pieces) {
-		if (circular_vertices($piece)) {
-			$svg .= gen_piece_svg($piece, $positions);
+		my $edges = $$piece{'edges'};
+		if (circular_vertices($edges)) {
+			$svg .= gen_piece_svg($edges, $positions, $params);
 		}
 	}
 	return $svg;
 }
 
 sub calc_positions {
-	my ($pieces, $params, $positions, $dimensions) = @_;
+	my ($pieces, $inc_ang, $flip, $positions, $dimensions) = @_;
 	for (my $p = 0; $p < @$pieces; $p++) {
 		my $piece = $$pieces[$p];
-		for (my $e = 0; $e < @$piece; $e++) {
-			my $edge = $$piece[$e];
+		my $angle = sum_rationals($$piece{'piece_angle'}, $inc_ang);
+		my $edges = $$piece{'edges'};
+		for (my $e = 0; $e < @$edges; $e++) {
+			my $edge = $$edges[$e];
 			if ($p == 0 && $e == 0) {
-				my $mult = $$params{'multiplier'};
 				$$positions{$$edge{'ini'}} = {
-					'x'=>$mult * $$params{'start_x'},
-					'y'=>$mult * $$params{'start_y'},
+					'x' => 0,
+					'y' => 0,
 				};
 			}
-			if (calc_edge_positions($edge, $params, $positions)) {
-				if (defined($dimensions)) {
-					my $pos = $$positions{$$edge{'ini'}};
-					update_dimensions($pos, $dimensions);
-					$pos = $$positions{$$edge{'end'}};
-					update_dimensions($pos, $dimensions);
-				}
+			if (calc_edge_positions($edge, $angle, $flip,
+						$positions)) {
+				my $pos = $$positions{$$edge{'ini'}};
+				update_dimensions($pos, $dimensions);
+				$pos = $$positions{$$edge{'end'}};
+				update_dimensions($pos, $dimensions);
 			}
 		}
 	}
@@ -471,7 +503,7 @@ sub update_dimensions {
 }
 
 sub gen_piece_svg {
-	my ($piece_edges, $positions) = @_;
+	my ($piece_edges, $positions, $params) = @_;
 	if (@$piece_edges == 0) { return; }
 	my @verts;
 	for my $edge (@$piece_edges) {
@@ -486,7 +518,7 @@ sub gen_piece_svg {
 	for (my $v = 1; $v < @verts; $v++) {
 		my $pos = $$positions{$verts[$v]};
 		$points .= ' ' if ($v > 1);
-		$points .= fmt_pos($pos);
+		$points .= fmt_pos($pos, $params);
 	}
 	return "<polygon class=\"$CLASS_PIECE\" points=\"$points\" />\n";
 }
@@ -500,14 +532,14 @@ sub fmt_val {
 }
 
 sub calc_edge_positions {
-	my ($edge, $params, $positions) = @_;
+	my ($edge, $angle, $flip, $positions) = @_;
 	my $ini = $$edge{'ini'};
 	my $end = $$edge{'end'};
 	if (!exists $$positions{$ini}) {
 		print STDERR "ERROR: unable to make edge $ini-$end\n";
 		return 0;
 	}
-	my $pos = get_vert_pos($edge, $$positions{$ini}, $params);
+	my $pos = get_vert_pos($edge, $$positions{$ini}, $angle, $flip);
 	if (!exists $$positions{$end}) {
 		$$positions{$end} = $pos;
 	}
@@ -523,25 +555,31 @@ sub calc_edge_positions {
 }
 
 sub fmt_pos {
-	my $pos = shift;
-	return fmt_val($$pos{'x'}) . ',' . fmt_val($$pos{'y'});
+	my ($pos, $params) = @_;
+	my $x = $$pos{'x'};
+	my $y = $$pos{'y'};
+	if ($params) {
+		$x = $$params{'multiplier'} * ($$params{'start_x'} + $x);
+		$y = $$params{'multiplier'} * ($$params{'start_y'} + $y);
+	}
+	return fmt_val($x) . ',' . fmt_val($y);
 }
 
 sub get_length {
 	my $len = shift;
-	return $$len[0] + $$len[1] * $SQRT2;
+	return rational_to_num($$len[0]) + rational_to_num($$len[1]) * $SQRT2;
 }
 
 sub get_vert_pos {
-	my ($edge, $ini_pos, $params) = @_;
-	my $ang = $$edge{'ang'} + $$params{'inc_ang'};
-	if ($$params{'flip'}) {
+	my ($edge, $ini_pos, $angle, $flip) = @_;
+	my $ang = rational_to_num($$edge{'ang'}) + rational_to_num($angle);
+	if ($flip) {
 		$ang = -$ang + 4; #horizontal flip
 	}
 	$ang = -$PI_P4 * $ang;
 	my $dx = cos($ang);
 	my $dy = sin($ang);
-	my $total_len = $$params{'multiplier'} * get_length($$edge{'len'});
+	my $total_len = get_length($$edge{'len'});
 	return {
 		'x'=>$$ini_pos{'x'} + $dx * $total_len,
 		'y'=>$$ini_pos{'y'} + $dy * $total_len,

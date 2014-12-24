@@ -49,7 +49,7 @@ my %DEFAULT_STYLE_PIECES = ( #polygon
 	$STYLE_LINES => 'stroke-linejoin:round;' .
 		" stroke:$DEF_PC_COL; stroke-width:3px; fill:none;",
 	$STYLE_FILLED => 'stroke-linejoin:round;' .
-		" stroke:$DEF_PC_COL; stroke-width:1px; fill:$DEF_PC_COL;",
+		" stroke:$DEF_PC_COL; stroke-width:2px; fill:$DEF_PC_COL;",
 	$STYLE_SEPARATED => 'stroke-linejoin:round;' .
 		" stroke:$DEF_BG_COL; stroke-width:5px; fill:$DEF_PC_COL;",
 );

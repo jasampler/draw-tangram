@@ -17,7 +17,7 @@ use Getopt::Std;
 #
 # Help and code for the program: http://github.com/jasampler/draw-tangram/
 
-my $VERSION = '1.5';
+my $VERSION = '1.6';
 
 my $PI_P4 = atan2(1, 1); #PI/4 rad (45 deg)
 my $SQRT2 = sqrt(2); #hypotenuse
@@ -395,18 +395,20 @@ sub is_false {
 sub gen_figure_svg {
 	my ($pieces, $params) = @_;
 	my (%dimensions, %positions);
-	calc_positions($pieces, $$params{'inc_ang'}, $$params{'flip'},
-			\%positions, \%dimensions);
+	calc_positions($pieces, $$params{'inc_ang'}, \%positions, \%dimensions);
 	#calculate width, height, start_x and start_y from dimensions:
-	my $width =  fmt_val(($dimensions{'max_x'} - $dimensions{'min_x'} +
-			2 * $MARGIN) * $$params{'multiplier'});
-	my $height = fmt_val(($dimensions{'max_y'} - $dimensions{'min_y'} +
-			2 * $MARGIN) * $$params{'multiplier'});
+	my $width =  $dimensions{'max_x'} - $dimensions{'min_x'} + 2 * $MARGIN;
+	my $height = $dimensions{'max_y'} - $dimensions{'min_y'} + 2 * $MARGIN;
+	my $width_final = fmt_val($width * $$params{'multiplier'});
+	my $height_final = fmt_val($height * $$params{'multiplier'});
 	$$params{'start_x'} = -$dimensions{'min_x'} + $MARGIN;
 	$$params{'start_y'} = -$dimensions{'min_y'} + $MARGIN;
+	if ($$params{'flip'}) {
+		$$params{'start_x'} = $width - $$params{'start_x'};
+	}
 	my $svg = '<?xml version="1.0" standalone="no"?>' . "\n";
 	$svg .= '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"' . "\n" .
-		" width=\"$width\" height=\"$height\">" . "\n";
+		" width=\"$width_final\" height=\"$height_final\">" . "\n";
 	$svg .= "<style type=\"text/css\">" . $$params{'style'} . "</style>\n";
 	if ($$params{'background'}) {
 		$svg .= "<rect class=\"$CLASS_BACKGROUND\" x=\"0\" y=\"0\"" .
@@ -431,9 +433,10 @@ sub gen_names_svg {
 	my $offset = $DEFAULT_NAME_OFFSET / $DEFAULT_MULTIPLIER;
 	my $svg = '';
 	for my $name (sort(keys %$positions)) {
+		my $f = $$params{'flip'} ? -1 : 1; #horizontal flip
 		my $pos = $$positions{$name};
 		my $pos_x = fmt_val($$params{'multiplier'} *
-			($$params{'start_x'} + $$pos{'x'} + $offset));
+			($$params{'start_x'} + ($f * $$pos{'x'}) + $offset));
 		my $pos_y = fmt_val($$params{'multiplier'} *
 			($$params{'start_y'} + $$pos{'y'} - $offset));
 		$svg .= "<text class=\"$CLASS_NAME\"" .
@@ -455,7 +458,7 @@ sub gen_pieces_svg {
 }
 
 sub calc_positions {
-	my ($pieces, $inc_ang, $flip, $positions, $dimensions) = @_;
+	my ($pieces, $inc_ang, $positions, $dimensions) = @_;
 	for (my $p = 0; $p < @$pieces; $p++) {
 		my $piece = $$pieces[$p];
 		my $angle = sum_rationals($$piece{'piece_angle'}, $inc_ang);
@@ -468,8 +471,7 @@ sub calc_positions {
 					'y' => 0,
 				};
 			}
-			if (calc_edge_positions($edge, $angle, $flip,
-						$positions)) {
+			if (calc_edge_positions($edge, $angle, $positions)) {
 				my $pos = $$positions{$$edge{'ini'}};
 				update_dimensions($pos, $dimensions);
 				$pos = $$positions{$$edge{'end'}};
@@ -532,14 +534,14 @@ sub fmt_val {
 }
 
 sub calc_edge_positions {
-	my ($edge, $angle, $flip, $positions) = @_;
+	my ($edge, $angle, $positions) = @_;
 	my $ini = $$edge{'ini'};
 	my $end = $$edge{'end'};
 	if (!exists $$positions{$ini}) {
 		print STDERR "ERROR: unable to make edge $ini-$end\n";
 		return 0;
 	}
-	my $pos = get_vert_pos($edge, $$positions{$ini}, $angle, $flip);
+	my $pos = get_vert_pos($edge, $$positions{$ini}, $angle);
 	if (!exists $$positions{$end}) {
 		$$positions{$end} = $pos;
 	}
@@ -559,7 +561,8 @@ sub fmt_pos {
 	my $x = $$pos{'x'};
 	my $y = $$pos{'y'};
 	if ($params) {
-		$x = $$params{'multiplier'} * ($$params{'start_x'} + $x);
+		my $f = $$params{'flip'} ? -1 : 1; #horizontal flip
+		$x = $$params{'multiplier'} * ($$params{'start_x'} + ($f * $x));
 		$y = $$params{'multiplier'} * ($$params{'start_y'} + $y);
 	}
 	return fmt_val($x) . ',' . fmt_val($y);
@@ -571,11 +574,8 @@ sub get_length {
 }
 
 sub get_vert_pos {
-	my ($edge, $ini_pos, $angle, $flip) = @_;
+	my ($edge, $ini_pos, $angle) = @_;
 	my $ang = rational_to_num($$edge{'ang'}) + rational_to_num($angle);
-	if ($flip) {
-		$ang = -$ang + 4; #horizontal flip
-	}
 	$ang = -$PI_P4 * $ang;
 	my $dx = cos($ang);
 	my $dy = sin($ang);
